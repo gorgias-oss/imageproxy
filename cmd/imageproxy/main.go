@@ -50,6 +50,7 @@ var contentTypes = flag.String("contentTypes", "image/*", "comma separated list 
 var userAgent = flag.String("userAgent", "willnorris/imageproxy", "specify the user-agent used by imageproxy when fetching images from origin website")
 var minCacheDuration = flag.Duration("minCacheDuration", 0, "minimum duration to cache remote images")
 var forceCache = flag.Bool("forceCache", false, "Ignore no-store and private directives in responses")
+var denyPrivateNetworks = flag.Bool("denyPrivateNetworks", false, "refuse to fetch remote images from private, loopback, link-local and cloud metadata addresses")
 
 func init() {
 	flag.Var(&cache, "cache", "location to cache images (see https://github.com/willnorris/imageproxy#cache)")
@@ -60,7 +61,11 @@ func main() {
 	envy.Parse("IMAGEPROXY")
 	flag.Parse()
 
-	p := imageproxy.NewProxy(nil, cache.Cache)
+	var transport http.RoundTripper // nil uses the default AIA transport
+	if *denyPrivateNetworks {
+		transport = privateNetworkDenyingTransport()
+	}
+	p := imageproxy.NewProxy(transport, cache.Cache)
 	if *allowHosts != "" {
 		p.AllowHosts = strings.Split(*allowHosts, ",")
 	}
